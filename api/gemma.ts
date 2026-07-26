@@ -10,7 +10,7 @@
 // Edge, which does work correctly; the occasional timeout on the slowest
 // requests is a known, documented limitation (see README/writeup).
 import { GEMMA_MODEL, GEMMA_TIMEOUT_MS } from "../src/config";
-import { buildExtractionPrompt, REPAIR_SUFFIX } from "../src/lib/prompt";
+import { buildExtractionPrompt, buildInsightPrompt, REPAIR_SUFFIX } from "../src/lib/prompt";
 
 export const config = { runtime: "edge" };
 
@@ -33,9 +33,13 @@ function isRateLimited(ip: string): boolean {
 }
 
 interface GemmaRequestBody {
-  transcript: string;
+  /** PRD §7 extraction mode (default): transcript -> ledger JSON. */
+  transcript?: string;
   /** Set on the automatic retry-with-repair pass after malformed JSON. */
   repair?: boolean;
+  /** PRD §4.2 S3: weekly-summary text -> one short Bangla insight sentence. */
+  mode?: "extract" | "insight";
+  insightData?: string;
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -60,11 +64,20 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: "invalid_request", message: "Body must be JSON" }, 400);
   }
 
-  if (!body.transcript || !body.transcript.trim()) {
-    return json({ error: "invalid_request", message: "transcript is required" }, 400);
-  }
+  const mode = body.mode ?? "extract";
 
-  const promptText = buildExtractionPrompt(body.transcript) + (body.repair ? REPAIR_SUFFIX : "");
+  let promptText: string;
+  if (mode === "insight") {
+    if (!body.insightData || !body.insightData.trim()) {
+      return json({ error: "invalid_request", message: "insightData is required" }, 400);
+    }
+    promptText = buildInsightPrompt(body.insightData);
+  } else {
+    if (!body.transcript || !body.transcript.trim()) {
+      return json({ error: "invalid_request", message: "transcript is required" }, 400);
+    }
+    promptText = buildExtractionPrompt(body.transcript) + (body.repair ? REPAIR_SUFFIX : "");
+  }
 
   const geminiPayload = {
     contents: [{ parts: [{ text: promptText }] }],

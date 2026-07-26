@@ -1,8 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createTimeline, stagger } from "animejs";
+import { AuthModal, type AuthMode } from "../components/AuthModal";
+import { KhataBackdrop } from "../components/KhataBackdrop";
 
 export const ENTERED_KEY = "lal-khata-entered";
+export const SHOP_NAME_KEY = "lal-khata-shop-name";
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -62,9 +65,12 @@ export function WelcomePage() {
     }
   }, []);
 
-  const enter = () => {
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+
+  const enter = (shopName?: string) => {
     try {
       localStorage.setItem(ENTERED_KEY, "1");
+      if (shopName) localStorage.setItem(SHOP_NAME_KEY, shopName);
     } catch {
       /* ignore */
     }
@@ -84,6 +90,7 @@ export function WelcomePage() {
         <div className="blob blob-c bg-baki-amber" />
         <div className="ruled-paper absolute inset-0 opacity-[0.06]" />
       </div>
+      <KhataBackdrop tone="cream" />
 
       <div ref={heroRef} className="relative z-10 mx-auto flex min-h-dvh max-w-md flex-col items-center px-6 pb-10 pt-14 text-center">
         <h1 ref={titleRef} className="font-bangla text-5xl font-bold text-page-cream opacity-0">
@@ -137,21 +144,29 @@ export function WelcomePage() {
           <div className="flex w-full gap-3">
             <button
               type="button"
-              onClick={enter}
+              onClick={() => setAuthMode("signup")}
               className="flex-1 rounded-full bg-page-cream px-4 py-3 font-bangla font-semibold text-khata-red shadow-lg transition-transform active:scale-95"
             >
               সাইন আপ
             </button>
             <button
               type="button"
-              onClick={enter}
+              onClick={() => setAuthMode("login")}
               className="flex-1 rounded-full border-2 border-page-cream/70 px-4 py-3 font-bangla font-semibold text-page-cream transition-transform active:scale-95"
             >
               লগইন
             </button>
           </div>
-          <p className="font-bangla text-xs text-page-cream/70">কোনো পাসওয়ার্ড লাগবে না — সরাসরি শুরু করুন</p>
+          <p className="font-bangla text-xs text-page-cream/70">শুধু আপনার ফোনে থাকে — কোনো সার্ভারে যায় না</p>
         </div>
+
+        {authMode && (
+          <AuthModal
+            mode={authMode}
+            onClose={() => setAuthMode(null)}
+            onSubmit={(name) => enter(name)}
+          />
+        )}
 
         <div className="mt-auto flex flex-col items-center gap-2 pt-10">
           <svg width="36" height="36" viewBox="0 0 40 40" aria-hidden="true">

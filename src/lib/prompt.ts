@@ -31,3 +31,18 @@ If the transcript is empty, nonsensical, or unrelated to a shop transaction, use
 
 export const REPAIR_SUFFIX =
   "\n\nYour last output was invalid JSON. Return only the JSON object, no markdown fences, no explanation.";
+
+// PRD §4.2 S3 — weekly insight card. A second, independent use of Gemma:
+// given the week's already-computed totals (no raw ledger/PII beyond
+// customer names already visible in the app), write one short, friendly
+// observation a shopkeeper would actually find useful.
+export function buildInsightPrompt(summaryText: string): string {
+  return `You are a friendly assistant for a Bangladeshi shopkeeper reviewing their week.
+Given this week's ledger summary, write ONE short observation in Bangla (1-2 sentences,
+plain text, no markdown, no JSON) that highlights something useful — a trend, a notable
+customer balance, or an encouraging note. Be concrete with numbers when you have them.
+Write only the observation itself, nothing else.
+
+Weekly summary:
+${summaryText}`;
+}

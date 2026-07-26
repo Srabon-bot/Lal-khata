@@ -90,6 +90,21 @@
   }
 }
 
+.khata-breathe {
+  transform-origin: center;
+  animation: khata-breathe 7s ease-in-out infinite;
+}
+
+@keyframes khata-breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.035) rotate(-0.8deg);
+  }
+}
+
 .xeno-ring {
   transform-box: fill-box;
   transform-origin: center;
