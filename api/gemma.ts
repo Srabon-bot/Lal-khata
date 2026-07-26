@@ -1,10 +1,17 @@
-// Vercel Edge Function — the ONLY place GEMINI_API_KEY is read.
-// The browser never talks to generativelanguage.googleapis.com directly;
-// every Gemma call is routed through this proxy. See PRD §6.
+// Vercel serverless function (Node.js runtime) — the ONLY place
+// GEMINI_API_KEY is read. The browser never talks to
+// generativelanguage.googleapis.com directly; every Gemma call is routed
+// through this proxy. See PRD §6.
+//
+// Not an Edge Function: measured live, gemma-4-*-it's "thinking" overhead
+// puts real response latency at 15-26s+, and Vercel's Edge Runtime enforces
+// a hard ~25s execution ceiling that isn't configurable — verified by a
+// live 504 at 25.7s, under our own timeout. Node.js functions support an
+// explicit maxDuration instead.
 import { GEMMA_MODEL, GEMMA_TIMEOUT_MS } from "../src/config";
 import { buildExtractionPrompt, REPAIR_SUFFIX } from "../src/lib/prompt";
 
-export const config = { runtime: "edge" };
+export const maxDuration = 30;
 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent`;
 
