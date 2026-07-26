@@ -1,10 +1,16 @@
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { animate, stagger } from "animejs";
 import { db, startOfToday, computeTotals } from "../lib/db";
 import { LedgerRow } from "../components/LedgerRow";
 import { EmptyState } from "../components/EmptyState";
 import { AnimatedTaka } from "../components/AnimatedTaka";
 import { useSettings } from "../hooks/useSettings";
 import { entriesToCsv, downloadCsv } from "../lib/csv";
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export function KhataPage() {
   const { settings, setNumeralStyle } = useSettings();
@@ -19,6 +25,41 @@ export function KhataPage() {
   const entries = todayEntries ?? [];
   const totals = computeTotals(entries);
   const totalOutstanding = Math.max(0, (customers ?? []).reduce((sum, c) => sum + c.balanceTaka, 0));
+
+  // First load: stagger the whole list in at once. After that, only the row
+  // for a genuinely new entry gets its own spring settle (PRD §5.4) — we
+  // never re-stagger existing rows just because the live query re-fired.
+  const listRef = useRef<HTMLUListElement>(null);
+  const hasLoadedRef = useRef(false);
+  const knownIdsRef = useRef<Set<number>>(new Set());
+  const [newEntryId, setNewEntryId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (todayEntries === undefined) return;
+    const ids = new Set(todayEntries.map((e) => e.id!));
+
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      knownIdsRef.current = ids;
+      if (listRef.current && !prefersReducedMotion()) {
+        const rows = listRef.current.querySelectorAll("li");
+        if (rows.length > 0) {
+          animate(rows, {
+            opacity: [0, 1],
+            translateY: [10, 0],
+            duration: 320,
+            delay: stagger(45),
+            ease: "outQuad",
+          });
+        }
+      }
+      return;
+    }
+
+    const added = todayEntries.find((e) => e.id != null && !knownIdsRef.current.has(e.id));
+    knownIdsRef.current = ids;
+    if (added) setNewEntryId(added.id!);
+  }, [todayEntries]);
 
   const handleExport = async () => {
     const all = await db.entries.orderBy("createdAt").toArray();
@@ -58,14 +99,14 @@ export function KhataPage() {
       {entries.length === 0 ? (
         <EmptyState message="প্রথম হিসাব বলুন" showArrow />
       ) : (
-        <ul className="ruled-paper rounded-2xl bg-white shadow-sm">
+        <ul ref={listRef} className="ruled-paper rounded-2xl bg-white shadow-sm">
           {entries.map((entry) => (
             <LedgerRow
               key={entry.id}
               entry={entry}
               customerName={entry.customerId ? (customersById.get(entry.customerId)?.name ?? null) : null}
               numeralStyle={settings.numeralStyle}
-              className="entry-enter"
+              isNew={entry.id === newEntryId}
             />
           ))}
         </ul>

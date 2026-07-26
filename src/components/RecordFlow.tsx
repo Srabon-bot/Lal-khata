@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { animate } from "animejs";
 import { MicRecorder } from "./MicRecorder";
 import { ParsingIndicator } from "./ParsingIndicator";
 import { ConfirmationCard, type EditedEntry } from "./ConfirmationCard";
@@ -22,13 +23,21 @@ const ERROR_COPY: Record<GemmaError["kind"], string> = {
   invalid_json: "কথা বোঝা যায়নি — আবার বলুন",
 };
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
+  const [mounted, setMounted] = useState(open);
   const [phase, setPhase] = useState<Phase>("capture");
   const [result, setResult] = useState<ExtractionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const lastBlobRef = useRef<Blob | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const processedInitialRef = useRef<Blob | null>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const errorBoxRef = useRef<HTMLDivElement>(null);
 
   const reset = () => {
     setPhase("capture");
@@ -38,9 +47,52 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
   };
 
   const handleClose = () => {
-    reset();
     onClose();
   };
+
+  // Bottom sheet slide-up on open, slide-down before actually unmounting on
+  // close — a real transition instead of the modal snapping in/out (PRD §5.4
+  // motion table calls for settled, deliberate transitions everywhere).
+  useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const sheet = sheetRef.current;
+    const backdrop = backdropRef.current;
+    if (!sheet || !backdrop) return;
+
+    if (open) {
+      if (prefersReducedMotion()) {
+        backdrop.style.opacity = "1";
+        sheet.style.opacity = "1";
+        sheet.style.transform = "none";
+        return;
+      }
+      animate(backdrop, { opacity: [0, 1], duration: 200, ease: "outQuad" });
+      animate(sheet, { translateY: [48, 0], opacity: [0, 1], duration: 320, ease: "outQuad" });
+      return;
+    }
+
+    if (prefersReducedMotion()) {
+      reset();
+      setMounted(false);
+      return;
+    }
+    animate(backdrop, { opacity: [1, 0], duration: 180, ease: "inQuad" });
+    animate(sheet, {
+      translateY: [0, 48],
+      opacity: [1, 0],
+      duration: 220,
+      ease: "inQuad",
+      onComplete: () => {
+        reset();
+        setMounted(false);
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mounted]);
 
   const runExtraction = async (blob: Blob, mimeType?: string) => {
     lastBlobRef.current = blob;
@@ -83,7 +135,18 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialBlob]);
 
-  if (!open) return null;
+  // A single gentle shake on arrival at the error state — never looping
+  // (PRD §5.4: "gentle single shake / fade-in, nothing looping").
+  useEffect(() => {
+    if (phase !== "error" || prefersReducedMotion() || !errorBoxRef.current) return;
+    animate(errorBoxRef.current, {
+      translateX: [0, -8, 8, -6, 6, 0],
+      duration: 400,
+      ease: "inOutQuad",
+    });
+  }, [phase]);
+
+  if (!mounted) return null;
 
   const handleConfirm = async (entry: EditedEntry) => {
     await recordEntry({
@@ -99,13 +162,9 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="নতুন হিসাব বলুন"
-    >
-      <div className="w-full max-w-md rounded-t-3xl bg-page-cream p-6 pb-8 shadow-xl sm:rounded-3xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="নতুন হিসাব বলুন">
+      <div ref={backdropRef} className="absolute inset-0 bg-ink/40 opacity-0" aria-hidden="true" />
+      <div ref={sheetRef} className="relative w-full max-w-md rounded-t-3xl bg-page-cream p-6 pb-8 opacity-0 shadow-xl sm:rounded-3xl">
         <div className="mb-4 flex justify-end">
           <button
             ref={closeButtonRef}
@@ -149,7 +208,7 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
         )}
 
         {phase === "error" && (
-          <div className="flex flex-col items-center gap-4 py-4 text-center" role="alert">
+          <div ref={errorBoxRef} className="flex flex-col items-center gap-4 py-4 text-center" role="alert">
             <p className="font-bangla text-lg font-semibold text-khata-red">{errorMessage}</p>
             <button
               type="button"

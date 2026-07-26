@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
+import { animate } from "animejs";
 import { db, repayBaki } from "../lib/db";
 import { LedgerRow } from "../components/LedgerRow";
 import { EmptyState } from "../components/EmptyState";
-import { formatTaka } from "../lib/numerals";
+import { AnimatedTaka } from "../components/AnimatedTaka";
 import { useSettings } from "../hooks/useSettings";
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +26,24 @@ export function CustomerDetailPage() {
 
   const [repaying, setRepaying] = useState(false);
   const [amount, setAmount] = useState("");
+  const checkRef = useRef<SVGPathElement>(null);
+  const prevBalanceRef = useRef<number | null>(null);
+
+  // Amber → green crossfade + a small ✓ line-draw the moment a customer's
+  // baki hits zero (PRD §5.4). Only fires on the transition, not on load.
+  useEffect(() => {
+    if (!customer) return;
+    const prev = prevBalanceRef.current;
+    prevBalanceRef.current = customer.balanceTaka;
+    if (prev != null && prev > 0 && customer.balanceTaka <= 0 && checkRef.current && !prefersReducedMotion()) {
+      const path = checkRef.current;
+      const length = path.getTotalLength();
+      path.style.strokeDasharray = `${length}`;
+      path.style.strokeDashoffset = `${length}`;
+      animate(path, { strokeDashoffset: [length, 0], duration: 450, ease: "outQuad", delay: 150 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.balanceTaka]);
 
   if (!customer) return null;
 
@@ -45,13 +68,29 @@ export function CustomerDetailPage() {
 
       <div className="rounded-2xl bg-white p-5 text-center shadow-sm">
         <p className="font-bangla text-sm text-ink/50">মোট বাকি</p>
-        <p
-          className={`tabular-amount text-3xl font-bold transition-colors duration-300 ${
-            customer.balanceTaka > 0 ? "text-baki-amber" : "text-joma-green"
-          }`}
-        >
-          {formatTaka(Math.max(0, customer.balanceTaka), settings.numeralStyle)}
-        </p>
+        <div className="flex items-center justify-center gap-2">
+          <AnimatedTaka
+            value={Math.max(0, customer.balanceTaka)}
+            numeralStyle={settings.numeralStyle}
+            className={`tabular-amount text-3xl font-bold transition-colors duration-300 ${
+              customer.balanceTaka > 0 ? "text-baki-amber" : "text-joma-green"
+            }`}
+          />
+          {customer.balanceTaka <= 0 && (
+            <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+              <circle cx="14" cy="14" r="13" fill="none" stroke="var(--color-joma-green)" strokeWidth="1.5" opacity="0.3" />
+              <path
+                ref={checkRef}
+                d="M8 14.5l4 4 8-9"
+                fill="none"
+                stroke="var(--color-joma-green)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </div>
 
         {customer.balanceTaka > 0 &&
           (repaying ? (
