@@ -1,111 +1,85 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "tailwindcss";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+@theme {
+  /* Color tokens — PRD §5.1 */
+  --color-khata-red: #b3261e;
+  --color-khata-red-deep: #7a1512;
+  --color-page-cream: #faf3e3;
+  --color-rule-blue: #3d5a80;
+  --color-ink: #26201a;
+  --color-baki-amber: #985200; /* darkened from #C97B1E — 5.36:1 on cream, passes WCAG AA */
+  --color-joma-green: #2e7d4f;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Typography — PRD §5.2 */
+  --font-display: "Hind Siliguri", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", "Hind Siliguri", system-ui, sans-serif;
+}
 
-  @media (max-width: 1024px) {
+@layer base {
+  html {
+    background-color: var(--color-page-cream);
+    color: var(--color-ink);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
     font-size: 16px;
+    min-height: 100dvh;
+  }
+
+  :lang(bn),
+  .font-bangla {
+    font-family: var(--font-display);
+  }
+
+  /* Visible keyboard focus everywhere — PRD §5.5 */
+  :focus-visible {
+    outline: 3px solid var(--color-rule-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+@layer utilities {
+  /* Faint repeating ruled-paper background for ledger rows — PRD §5.3 */
+  .ruled-paper {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 47px,
+      color-mix(in srgb, var(--color-rule-blue) 18%, transparent) 48px
+    );
   }
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  .tabular-amount {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .entry-enter {
+    animation: entry-slide-in 260ms ease-out;
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+@keyframes entry-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }
