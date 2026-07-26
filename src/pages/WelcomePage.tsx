@@ -22,7 +22,7 @@ const FEATURES = [
 const STATS = [
   { value: "৪৫ লাখ+", label: "মুদি দোকান বাংলাদেশে" },
   { value: "৭৩%+", label: "বিক্রি হয় বাকিতে" },
-  { value: "৯৪%", label: "পরিবার এখান থেকেই কেনে" },
+  { value: "৯৪%", label: "পরিবার মুদি দোকান থেকে কেনে" },
 ] as const;
 
 export function WelcomePage() {
