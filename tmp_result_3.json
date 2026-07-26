@@ -1,1 +1,0 @@
-{"text": "{\n \"type\": \"repayment\",\n \"customer\": \"করিম ভাই\",\n \"item\": null,\n \"amount_taka\": 50,\n \"confidence\": { \"customer\": 1.0, \"item\": 0.0, \"amount\": 1.0 },\n \"transcript\": \"করিম ভাই পঞ্চাশ টাকা শোধ করলো\"\n}"}
