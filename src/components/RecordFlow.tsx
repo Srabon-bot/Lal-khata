@@ -3,7 +3,7 @@ import { animate } from "animejs";
 import { MicRecorder } from "./MicRecorder";
 import { ParsingIndicator } from "./ParsingIndicator";
 import { ConfirmationCard, type EditedEntry } from "./ConfirmationCard";
-import { extractFromAudio, GemmaError } from "../lib/gemmaClient";
+import { extractFromTranscript, GemmaError } from "../lib/gemmaClient";
 import { recordEntry, queuePendingRecording } from "../lib/db";
 import type { ExtractionResult } from "../lib/schema";
 
@@ -12,8 +12,8 @@ type Phase = "capture" | "parsing" | "confirm" | "error" | "queued";
 interface RecordFlowProps {
   open: boolean;
   onClose: () => void;
-  /** A previously-queued offline recording to process immediately on open. */
-  initialBlob?: Blob | null;
+  /** A previously-queued offline utterance to process immediately on open. */
+  initialTranscript?: string | null;
 }
 
 const ERROR_COPY: Record<GemmaError["kind"], string> = {
@@ -27,14 +27,14 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
+export function RecordFlow({ open, onClose, initialTranscript }: RecordFlowProps) {
   const [mounted, setMounted] = useState(open);
   const [phase, setPhase] = useState<Phase>("capture");
   const [result, setResult] = useState<ExtractionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const lastBlobRef = useRef<Blob | null>(null);
+  const lastTranscriptRef = useRef<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const processedInitialRef = useRef<Blob | null>(null);
+  const processedInitialRef = useRef<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const errorBoxRef = useRef<HTMLDivElement>(null);
@@ -43,7 +43,7 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
     setPhase("capture");
     setResult(null);
     setErrorMessage("");
-    lastBlobRef.current = null;
+    lastTranscriptRef.current = null;
   };
 
   const handleClose = () => {
@@ -94,18 +94,18 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mounted]);
 
-  const runExtraction = async (blob: Blob, mimeType?: string) => {
-    lastBlobRef.current = blob;
+  const runExtraction = async (transcript: string) => {
+    lastTranscriptRef.current = transcript;
 
     if (!navigator.onLine) {
-      await queuePendingRecording(blob, mimeType ?? (blob.type || "audio/webm"));
+      await queuePendingRecording(transcript);
       setPhase("queued");
       return;
     }
 
     setPhase("parsing");
     try {
-      const extracted = await extractFromAudio(blob);
+      const extracted = await extractFromTranscript(transcript);
       setResult(extracted);
       setPhase("confirm");
     } catch (err) {
@@ -128,12 +128,12 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || !initialBlob) return;
-    if (processedInitialRef.current === initialBlob) return;
-    processedInitialRef.current = initialBlob;
-    void runExtraction(initialBlob);
+    if (!open || !initialTranscript) return;
+    if (processedInitialRef.current === initialTranscript) return;
+    processedInitialRef.current = initialTranscript;
+    void runExtraction(initialTranscript);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialBlob]);
+  }, [open, initialTranscript]);
 
   // A single gentle shake on arrival at the error state — never looping
   // (PRD §5.4: "gentle single shake / fade-in, nothing looping").
@@ -212,7 +212,7 @@ export function RecordFlow({ open, onClose, initialBlob }: RecordFlowProps) {
             <p className="font-bangla text-lg font-semibold text-khata-red">{errorMessage}</p>
             <button
               type="button"
-              onClick={() => lastBlobRef.current && runExtraction(lastBlobRef.current)}
+              onClick={() => lastTranscriptRef.current && runExtraction(lastTranscriptRef.current)}
               className="rounded-full bg-khata-red px-6 py-3 font-bangla font-semibold text-white"
             >
               আবার চেষ্টা করুন

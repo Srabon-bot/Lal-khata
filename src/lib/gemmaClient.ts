@@ -13,17 +13,6 @@ export class GemmaError extends Error {
   }
 }
 
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
 /** Strips ```json fences (or bare ```) that models sometimes wrap output in. */
 function stripCodeFences(text: string): string {
   const trimmed = text.trim();
@@ -31,7 +20,7 @@ function stripCodeFences(text: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
-async function callProxy(audioBase64: string, mimeType: string, repair: boolean): Promise<string> {
+async function callProxy(transcript: string, repair: boolean): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GEMMA_TIMEOUT_MS);
 
@@ -40,7 +29,7 @@ async function callProxy(audioBase64: string, mimeType: string, repair: boolean)
     res = await fetch(GEMMA_PROXY_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ audioBase64, mimeType, repair }),
+      body: JSON.stringify({ transcript, repair }),
       signal: controller.signal,
     });
   } catch (err) {
@@ -64,19 +53,16 @@ async function callProxy(audioBase64: string, mimeType: string, repair: boolean)
 }
 
 /**
- * Sends a recorded clip to Gemma 3n via the /api/gemma proxy and returns a
- * validated ExtractionResult. Retries once with a repair instruction if the
- * model's first output isn't valid JSON (PRD §7).
+ * Sends a browser-transcribed utterance to Gemma via the /api/gemma proxy
+ * and returns a validated ExtractionResult. Retries once with a repair
+ * instruction if the model's first output isn't valid JSON (PRD §7).
  */
-export async function extractFromAudio(audioBlob: Blob): Promise<ExtractionResult> {
-  const audioBase64 = await blobToBase64(audioBlob);
-  const mimeType = audioBlob.type || "audio/webm";
-
-  const rawFirst = await callProxy(audioBase64, mimeType, false);
+export async function extractFromTranscript(transcript: string): Promise<ExtractionResult> {
+  const rawFirst = await callProxy(transcript, false);
   const parsed = tryParse(rawFirst);
   if (parsed) return parsed;
 
-  const rawRetry = await callProxy(audioBase64, mimeType, true);
+  const rawRetry = await callProxy(transcript, true);
   const repaired = tryParse(rawRetry);
   if (repaired) return repaired;
 

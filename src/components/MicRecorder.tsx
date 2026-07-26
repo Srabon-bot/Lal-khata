@@ -1,11 +1,10 @@
 import { useEffect, useRef } from "react";
 import { animate, type JSAnimation } from "animejs";
-import { useRecorder } from "../hooks/useRecorder";
-import { Waveform } from "./Waveform";
+import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { MAX_RECORDING_SECONDS } from "../config";
 
 interface MicRecorderProps {
-  onRecorded: (blob: Blob) => void;
+  onRecorded: (transcript: string) => void;
   disabled?: boolean;
 }
 
@@ -14,12 +13,12 @@ function prefersReducedMotion(): boolean {
 }
 
 export function MicRecorder({ onRecorded, disabled }: MicRecorderProps) {
-  const { status, elapsedSeconds, levels, start, stop, cancel } = useRecorder(onRecorded);
+  const { status, elapsedSeconds, interimText, start, stop, cancel } = useSpeechRecognition(onRecorded);
   const micButtonRef = useRef<HTMLButtonElement>(null);
   const pulseRef = useRef<JSAnimation | null>(null);
 
   useEffect(() => {
-    if (status === "recording" && micButtonRef.current && !prefersReducedMotion()) {
+    if (status === "listening" && micButtonRef.current && !prefersReducedMotion()) {
       pulseRef.current = animate(micButtonRef.current, {
         scale: [1, 1.08],
         duration: 900,
@@ -67,10 +66,15 @@ export function MicRecorder({ onRecorded, disabled }: MicRecorderProps) {
     );
   }
 
-  if (status === "recording") {
+  if (status === "listening" || status === "requesting") {
     return (
       <div className="flex flex-col items-center gap-3">
-        <Waveform levels={levels} />
+        <p
+          className="min-h-6 max-w-xs px-4 text-center font-bangla text-base text-ink/80"
+          aria-live="polite"
+        >
+          {status === "requesting" ? "অনুমতি চাওয়া হচ্ছে..." : interimText || "শুনছি..."}
+        </p>
         <p className="tabular-amount font-bangla text-sm text-ink/70" aria-live="polite">
           {Math.ceil(remaining)} সেকেন্ড বাকি
         </p>
@@ -103,16 +107,14 @@ export function MicRecorder({ onRecorded, disabled }: MicRecorderProps) {
       <button
         ref={micButtonRef}
         type="button"
-        disabled={disabled || status === "requesting"}
+        disabled={disabled}
         onClick={start}
         aria-label="হিসাব বলার জন্য মাইক চাপুন"
         className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-khata-red text-3xl text-white shadow-lg transition-transform active:scale-95 disabled:opacity-50"
       >
         🎙️
       </button>
-      <p className="font-bangla text-sm text-ink/70">
-        {status === "requesting" ? "অনুমতি চাওয়া হচ্ছে..." : "কথা বলতে চাপুন"}
-      </p>
+      <p className="font-bangla text-sm text-ink/70">কথা বলতে চাপুন</p>
     </div>
   );
 }

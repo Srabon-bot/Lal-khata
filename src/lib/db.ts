@@ -36,11 +36,10 @@ export interface Settings {
 
 export const SETTINGS_ID = 1;
 
-/** A clip recorded while offline, queued for extraction once back online (PRD F8). */
+/** An utterance transcribed while offline, queued for extraction once back online (PRD F8). */
 export interface PendingRecording {
   id?: number;
-  blob: Blob;
-  mimeType: string;
+  transcript: string;
   createdAt: number;
 }
 
@@ -186,9 +185,9 @@ export function computeTotals(entries: LedgerEntry[]): DailyTotals {
   );
 }
 
-/** Queues a clip recorded while offline for extraction once connectivity returns. */
-export async function queuePendingRecording(blob: Blob, mimeType: string): Promise<void> {
-  await db.pendingRecordings.add({ blob, mimeType, createdAt: Date.now() });
+/** Queues an utterance transcribed while offline for extraction once connectivity returns. */
+export async function queuePendingRecording(transcript: string): Promise<void> {
+  await db.pendingRecordings.add({ transcript, createdAt: Date.now() });
 }
 
 export async function popOldestPendingRecording(): Promise<PendingRecording | undefined> {

@@ -2,7 +2,7 @@
 // The browser never talks to generativelanguage.googleapis.com directly;
 // every Gemma call is routed through this proxy. See PRD §6.
 import { GEMMA_MODEL, GEMMA_TIMEOUT_MS } from "../src/config";
-import { EXTRACTION_PROMPT, REPAIR_SUFFIX } from "../src/lib/prompt";
+import { buildExtractionPrompt, REPAIR_SUFFIX } from "../src/lib/prompt";
 
 export const config = { runtime: "edge" };
 
@@ -25,8 +25,7 @@ function isRateLimited(ip: string): boolean {
 }
 
 interface GemmaRequestBody {
-  audioBase64: string;
-  mimeType: string;
+  transcript: string;
   /** Set on the automatic retry-with-repair pass after malformed JSON. */
   repair?: boolean;
 }
@@ -53,21 +52,21 @@ export default async function handler(req: Request): Promise<Response> {
     return json({ error: "invalid_request", message: "Body must be JSON" }, 400);
   }
 
-  if (!body.audioBase64 || !body.mimeType) {
-    return json({ error: "invalid_request", message: "audioBase64 and mimeType are required" }, 400);
+  if (!body.transcript || !body.transcript.trim()) {
+    return json({ error: "invalid_request", message: "transcript is required" }, 400);
   }
 
-  const promptText = body.repair ? EXTRACTION_PROMPT + REPAIR_SUFFIX : EXTRACTION_PROMPT;
+  const promptText = buildExtractionPrompt(body.transcript) + (body.repair ? REPAIR_SUFFIX : "");
 
   const geminiPayload = {
-    contents: [
-      {
-        parts: [{ text: promptText }, { inline_data: { mime_type: body.mimeType, data: body.audioBase64 } }],
-      },
-    ],
+    contents: [{ parts: [{ text: promptText }] }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 512,
+      // gemma-4-*-it spends part of its output budget on internal "thought"
+      // tokens before the final answer (thinkingConfig can't disable it —
+      // verified 400 "Thinking budget is not supported for this model").
+      // Budget generously so the actual JSON isn't truncated away.
+      maxOutputTokens: 4096,
     },
   };
 
@@ -91,9 +90,13 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const data = await upstream.json();
-    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts: Array<{ text?: string; thought?: boolean }> = data?.candidates?.[0]?.content?.parts ?? [];
+    const text = parts
+      .filter((p) => !p.thought && typeof p.text === "string")
+      .map((p) => p.text)
+      .join("");
 
-    if (typeof text !== "string") {
+    if (!text) {
       return json({ error: "empty_response", message: "Gemma returned no text" }, 502);
     }
 

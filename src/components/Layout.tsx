@@ -6,11 +6,12 @@ import { db, popOldestPendingRecording } from "../lib/db";
 
 export function Layout() {
   const [recordOpen, setRecordOpen] = useState(false);
-  const [initialBlob, setInitialBlob] = useState<Blob | null>(null);
+  const [initialTranscript, setInitialTranscript] = useState<string | null>(null);
 
-  // PRD F8: clips recorded while offline are queued locally; retry them once
-  // we're back online (or on next load), surfacing the confirmation card for
-  // review — never auto-writing a queued entry without the shopkeeper's OK.
+  // PRD F8: utterances transcribed while offline are queued locally; retry
+  // them once we're back online (or on next load), surfacing the
+  // confirmation card for review — never auto-writing a queued entry
+  // without the shopkeeper's OK.
   useEffect(() => {
     if (recordOpen) return;
 
@@ -20,7 +21,7 @@ export function Layout() {
       const next = await popOldestPendingRecording();
       if (!next || cancelled) return;
       await db.pendingRecordings.delete(next.id!);
-      setInitialBlob(next.blob);
+      setInitialTranscript(next.transcript);
       setRecordOpen(true);
     };
 
@@ -40,10 +41,10 @@ export function Layout() {
       <BottomNav onMicClick={() => setRecordOpen(true)} />
       <RecordFlow
         open={recordOpen}
-        initialBlob={initialBlob}
+        initialTranscript={initialTranscript}
         onClose={() => {
           setRecordOpen(false);
-          setInitialBlob(null);
+          setInitialTranscript(null);
         }}
       />
     </div>
