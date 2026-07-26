@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { AnimatedTaka } from "../components/AnimatedTaka";
 import { useSettings } from "../hooks/useSettings";
 import { entriesToCsv, downloadCsv } from "../lib/csv";
+import { speakDailySummary, speechSupported } from "../lib/speech";
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -61,6 +62,16 @@ export function KhataPage() {
     if (added) setNewEntryId(added.id!);
   }, [todayEntries]);
 
+  const [speaking, setSpeaking] = useState(false);
+
+  const handleSpeak = () => {
+    setSpeaking(true);
+    speakDailySummary(totals.cashTaka, totals.creditTaka, totals.repaidTaka);
+    // SpeechSynthesisUtterance's onend isn't wired here to keep this simple;
+    // a short fixed pulse is enough feedback that the tap registered.
+    window.setTimeout(() => setSpeaking(false), 1200);
+  };
+
   const handleExport = async () => {
     const all = await db.entries.orderBy("createdAt").toArray();
     const allCustomers = await db.customers.toArray();
@@ -75,14 +86,26 @@ export function KhataPage() {
     <div className="flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <h1 className="font-bangla text-2xl font-bold text-ink">আজকের খাতা</h1>
-        <button
-          type="button"
-          onClick={() => setNumeralStyle(settings.numeralStyle === "bn" ? "en" : "bn")}
-          className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/60"
-          aria-label="সংখ্যা পদ্ধতি পরিবর্তন করুন"
-        >
-          {settings.numeralStyle === "bn" ? "০-৯ → 0-9" : "0-9 → ০-৯"}
-        </button>
+        <div className="flex items-center gap-2">
+          {speechSupported() && (
+            <button
+              type="button"
+              onClick={handleSpeak}
+              aria-label="আজকের হিসাব শুনুন"
+              className={`flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 text-sm transition-transform ${speaking ? "scale-110 bg-khata-red/10" : ""}`}
+            >
+              🔊
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setNumeralStyle(settings.numeralStyle === "bn" ? "en" : "bn")}
+            className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/60"
+            aria-label="সংখ্যা পদ্ধতি পরিবর্তন করুন"
+          >
+            {settings.numeralStyle === "bn" ? "০-৯ → 0-9" : "0-9 → ০-৯"}
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-3 gap-2">
