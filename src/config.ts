@@ -21,10 +21,11 @@ export const CONFIDENCE_FLAG_THRESHOLD = 0.7; // below this, a field gets an amb
 // budget on internal reasoning before the final JSON, which adds latency
 // versus a non-thinking model. Both Gemma models on this key are
 // thinking-only (no faster non-thinking variant available), and measured
-// live latency runs up to ~26s. The proxy (api/gemma.ts) runs as a Node.js
-// function with maxDuration=30s to accommodate this; kept a couple seconds
-// under that here so our own timeout fires before the platform kills it.
-export const GEMMA_TIMEOUT_MS = 27_000;
+// live latency runs up to ~26s. The proxy (api/gemma.ts) runs on Vercel's
+// Edge Runtime, which enforces a hard ~25s execution ceiling that isn't
+// configurable — kept just under that so our own clean timeout (with a
+// friendly message) fires before the platform kills the function outright.
+export const GEMMA_TIMEOUT_MS = 24_000;
 
 const isViteDev =
   typeof import.meta !== "undefined" && Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
